@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { 
   LayoutDashboard, 
@@ -18,19 +18,25 @@ function Navbar() {
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  
+  // State to hold the logged-in user's data
+  const [user, setUser] = useState({ name: "Admin User", role: "Manager" });
 
-  // Safe Parsing logic to prevent "undefined" JSON error
-  const getAuthUser = () => {
-    try {
-      const storedUser = localStorage.getItem("user");
-      if (!storedUser || storedUser === "undefined") return null;
-      return JSON.parse(storedUser);
-    } catch (error) {
-      return null;
+  useEffect(() => {
+    // Fetch user from localStorage when the component mounts
+    const storedUser = localStorage.getItem("user");
+    if (storedUser && storedUser !== "undefined") {
+      try {
+        const parsedUser = JSON.parse(storedUser);
+        setUser({
+          name: parsedUser.name || "User",
+          role: parsedUser.role || "Staff"
+        });
+      } catch (error) {
+        console.error("Failed to parse user data:", error);
+      }
     }
-  };
-
-  const user = getAuthUser() || { name: "Admin User", role: "Manager" };
+  }, []);
 
   const handleLogout = () => {
     localStorage.clear();
@@ -96,12 +102,13 @@ function Navbar() {
                 onClick={() => setIsProfileOpen(!isProfileOpen)}
                 className="flex items-center gap-3 p-1 pr-3 rounded-full hover:bg-slate-50 transition-colors"
               >
-                <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 border border-blue-200">
-                  <UserIcon size={18} />
+                <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 border border-blue-200 font-bold uppercase">
+                  {/* First letter of user's name as an avatar */}
+                  {user.name.charAt(0)}
                 </div>
                 <div className="text-left">
                   <p className="text-xs font-bold text-slate-900 leading-none">{user.name}</p>
-                  <p className="text-[10px] text-slate-500 font-medium">{user.role}</p>
+                  <p className="text-[10px] text-slate-500 font-medium uppercase tracking-tighter">{user.role}</p>
                 </div>
                 <ChevronDown size={14} className={`text-slate-400 transition-transform ${isProfileOpen ? 'rotate-180' : ''}`} />
               </button>
@@ -109,6 +116,10 @@ function Navbar() {
               {/* Profile Dropdown */}
               {isProfileOpen && (
                 <div className="absolute right-0 mt-2 w-48 bg-white border border-slate-200 rounded-2xl shadow-xl py-2 animate-in fade-in zoom-in duration-200">
+                  <div className="px-4 py-2 border-b border-slate-50 mb-1">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Signed in as</p>
+                    <p className="text-xs font-medium text-slate-700 truncate">{user.name}</p>
+                  </div>
                   <button 
                     onClick={handleLogout}
                     className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 font-bold"

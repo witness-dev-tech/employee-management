@@ -130,13 +130,11 @@ app.post("/department", verifyToken, (req, res) => {
 
 });
 
-/* =====================================
-   EMPLOYEE INSERT
+/* EMPLOYEE INSERT (Optimized)
 ===================================== */
 app.post("/employee", verifyToken, (req, res) => {
-
+    // We exclude employeeID because it is AUTO_INCREMENT in the DB
     const {
-        employeeNumber,
         FirstName,
         LastName,
         Position,
@@ -144,69 +142,85 @@ app.post("/employee", verifyToken, (req, res) => {
         Telephone,
         Gender,
         hiredDate,
-        DepartmentCode
+        DepartmentCode // Used as the Foreign Key link
     } = req.body;
 
     const sql = `
-        INSERT INTO Employee
-        (employeeNumber, FirstName, LastName, Position, Address, Telephone, Gender, hiredDate, DepartmentCode)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO Employee 
+        (FirstName, LastName, Position, Address, Telephone, Gender, hiredDate, DepartmentCode) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
-    db.query(sql, [
-        employeeNumber,
-        FirstName,
-        LastName,
-        Position,
-        Address,
-        Telephone,
-        Gender,
-        hiredDate,
+    const values = [
+        FirstName, 
+        LastName, 
+        Position, 
+        Address, 
+        Telephone, 
+        Gender, 
+        hiredDate, 
         DepartmentCode
-    ], (err) => {
+    ];
 
-        if (err) return res.status(500).json(err);
+    db.query(sql, values, (err, result) => {
+        if (err) {
+            console.error("Database Error:", err);
+            
+            // Error 1452 is MySQL's code for a Foreign Key constraint failure
+            if (err.errno === 1452) {
+                return res.status(400).json({ 
+                    message: "Selected Department Code does not exist." 
+                });
+            }
+            
+            return res.status(500).json({ message: "Internal Server Error" });
+        }
 
-        res.json({ message: "Employee added successfully" });
-
+        res.json({ 
+            message: "Employee added successfully", 
+            id: result.insertId // The auto-generated ID from the DB
+        });
     });
-
 });
-
 /* =====================================
    SALARY INSERT
 ===================================== */
 app.post("/salary", verifyToken, (req, res) => {
-
     const {
         GrossSalary,
         TotalDeduction,
         NetSalary,
         Month,
-        employeeNumber
+        employeeNumber // Make sure this matches what the frontend sends
     } = req.body;
 
+    // Check if any value is undefined
+    if (!employeeNumber || !GrossSalary || !Month) {
+        return res.status(400).json({ message: "Missing required fields" });
+    }
+
     const sql = `
-        INSERT INTO Salary
-        (GrossSalary, TotalDeduction, NetSalary, Month, employeeNumber)
+        INSERT INTO Salary 
+        (GrossSalary, TotalDeduction, NetSalary, Month, employeeNumber) 
         VALUES (?, ?, ?, ?, ?)
     `;
 
-    db.query(sql, [
-        GrossSalary,
-        TotalDeduction,
-        NetSalary,
-        Month,
-        employeeNumber
-    ], (err) => {
-
-        if (err) return res.status(500).json(err);
-
-        res.json({ message: "Salary added successfully" });
-
+    db.query(sql, [GrossSalary, TotalDeduction, NetSalary, Month, employeeNumber], (err, result) => {
+        if (err) {
+            // CRITICAL: Look at your Node.js terminal/command prompt 
+            // after the 500 error happens to see this log!
+            console.error("DEBUG - SQL Error Details:", err.sqlMessage);
+            console.error("DEBUG - Full Error Object:", err);
+            
+            return res.status(500).json({ 
+                message: "Database Error", 
+                error: err.sqlMessage 
+            });
+        }
+        res.json({ message: "Salary added successfully", id: result.insertId });
     });
-
 });
+
 
 /* =====================================
    SALARY RETRIEVE
